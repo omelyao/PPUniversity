@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Мои заявки - Университетский портал вакансий</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding-top: 20px;
+      background-color: #f5f5f5;
+    }
+    .application-card {
+      margin-bottom: 20px;
+      transition: transform 0.2s;
+    }
+    .application-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .navbar-brand {
+      font-weight: bold;
+    }
+    .status-badge {
+      font-size: 0.8rem;
+      padding: 0.35em 0.65em;
+    }
+    .status-pending {
+      background-color: #ffc107;
+      color: #212529;
+    }
+    .status-reviewed {
+      background-color: #17a2b8;
+      color: white;
+    }
+    .status-contacted {
+      background-color: #6f42c1;
+      color: white;
+    }
+    .status-accepted {
+      background-color: #28a745;
+      color: white;
+    }
+    .status-rejected {
+      background-color: #dc3545;
+      color: white;
+    }
+    #errorContainer {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Навигация -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <div class="container">
+      <a class="navbar-brand" href="/">Университетский портал вакансий</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="/">Вакансии</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/applications.html">Мои заявки</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Основной контент -->
+  <div class="container">
+    <!-- Область отображения ошибок -->
+    <div id="errorContainer" class="alert alert-danger mb-4">
+      <h5 id="errorTitle">Ошибка</h5>
+      <p id="errorMessage"></p>
+      <p id="errorSuggestion" class="fw-bold"></p>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col">
+        <h1>Мои заявки</h1>
+      </div>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Проверить статус заявки</h5>
+            <p class="card-text">Введите свой email для просмотра всех ваших заявок.</p>
+            
+            <form id="searchForm" class="row g-3">
+              <div class="col-md-8">
+                <input type="email" class="form-control" id="searchEmail" placeholder="Ваш email адрес" required>
+              </div>
+              <div class="col-md-4">
+                <button type="submit" class="btn btn-primary w-100">Найти мои заявки</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Список заявок -->
+    <div id="applicationsContainer">
+      <div class="row" id="applicationsList">
+        <!-- Заявки будут загружены динамически -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно с деталями заявки -->
+  <div class="modal fade" id="applicationDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Детали заявки</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+        </div>
+        <div class="modal-body" id="applicationDetailsBody">
+          <!-- Детали заявки будут загружены сюда -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Скрипты -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // DOM элементы
+    const searchForm = document.getElementById('searchForm');
+    const applicationsList = document.getElementById('applicationsList');
+    const applicationsContainer = document.getElementById('applicationsContainer');
+    const errorContainer = document.getElementById('errorContainer');
+    const errorTitle = document.getElementById('errorTitle');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorSuggestion = document.getElementById('errorSuggestion');
+    const applicationDetailsModal = new bootstrap.Modal(document.getElementById('applicationDetailsModal'));
+    const applicationDetailsBody = document.getElementById('applicationDetailsBody');
+    
+    // Отправка формы поиска
+    searchForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const email = document.getElementById('searchEmail').value;
+      loadApplications(email);
+    });
+    
+    // Загрузка заявок из API
+    function loadApplications(email) {
+      if (!email) return;
+      
+      const url = `/api/applications?studentEmail=${encodeURIComponent(email)}`;
+      
+      applicationsList.innerHTML = `
+        <div class="col-12 text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Загрузка...</span>
+          </div>
+          <p class="mt-2">Загрузка заявок...</p>
+        </div>
+      `;
+      
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(err => {
+              throw err;
+            });
+          }
+          return response.json();
+        })
+        .then(data => {
+          displayApplications(data.data);
+        })
+        .catch(error => {
+          displayError(error);
+        });
+    }
+    
+    // Отображение заявок в интерфейсе
+    function displayApplications(applications) {
+      if (!applications || applications.length === 0) {
+        applicationsList.innerHTML = `
+          <div class="col-12 text-center py-5">
+            <p class="text-muted">Заявки для этого email адреса не найдены.</p>
+          </div>
+        `;
+        return;
+      }
+      
+      let html = '';
+      
+      applications.forEach(app => {
+        // Форматирование даты
+        const appliedDate = new Date(app.appliedAt);
+        const appliedDateFormatted = appliedDate.toLocaleDateString('ru-RU', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        
+        html += `
+          <div class="col-md-6">
+            <div class="card application-card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Заявка #${app.id.slice(-4)}</h5>
+                <span class="badge status-${app.status} status-badge">${formatStatus(app.status)}</span>
+              </div>
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">ID вакансии: ${app.jobId}</h6>
+                <p class="card-text mb-1">Подана: ${appliedDateFormatted}</p>
+                <p class="card-text mb-3">Имя: ${app.studentName}</p>
+                
+                <button class="btn btn-sm btn-outline-primary view-details-btn" 
+                        data-application-id="${app.id}">Посмотреть детали</button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      applicationsList.innerHTML = html;
+      
+      // Добавление обработчиков событий для кнопок просмотра деталей
+      document.querySelectorAll('.view-details-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const applicationId = e.target.getAttribute('data-application-id');
+          loadApplicationDetails(applicationId);
+        });
+      });
+    }
+    
+    // Загрузка деталей заявки
+    function loadApplicationDetails(applicationId) {
+      const url = `/api/applications/${applicationId}`;
+      
+      applicationDetailsBody.innerHTML = `
+        <div class="text-center py-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Загрузка...</span>
+          </div>
+          <p class="mt-2">Загрузка деталей...</p>
+        </div>
+      `;
+      
+      applicationDetailsModal.show();
+      
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(err => {
+              throw err;
+            });
+          }
+          return response.json();
+        })
+        .then(data => {
+          displayApplicationDetails(data);
+        })
+        .catch(error => {
+          displayError(error);
+          applicationDetailsModal.hide();
+        });
+    }
+    
+    // Отображение деталей заявки в модальном окне
+    function displayApplicationDetails(data) {
+      const app = data.data;
+      const job = data.job || {};
+      
+      // Форматирование даты
+      const appliedDate = new Date(app.appliedAt);
+      const appliedDateFormatted = appliedDate.toLocaleDateString('ru-RU', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      let jobInfo = '';
+      if (job.id) {
+        jobInfo = `
+          <div class="alert alert-info">
+            <h6 class="alert-heading">Информация о вакансии</h6>
+            <p class="mb-1"><strong>Название:</strong> ${job.title || 'Н/Д'}</p>
+            <p class="mb-0"><strong>Отдел:</strong> ${job.department || 'Н/Д'}</p>
+          </div>
+        `;
+      }
+      
+      const html = `
+        <div>
+          ${jobInfo}
+          
+          <h5>Статус заявки: <span class="badge status-${app.status}">${formatStatus(app.status)}</span></h5>
+          <p class="text-muted">Последнее обновление: ${appliedDateFormatted}</p>
+          
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <p><strong>Имя:</strong> ${app.studentName}</p>
+              <p><strong>Email:</strong> ${app.studentEmail}</p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>Телефон:</strong> ${app.phoneNumber || 'Не указан'}</p>
+              <p><strong>Доступность:</strong> ${app.availability || 'Не указана'}</p>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <h6>Сопроводительное письмо</h6>
+            <div class="p-3 bg-light rounded">
+              ${app.coverLetter || 'Сопроводительное письмо не предоставлено'}
+            </div>
+          </div>
+          
+          ${app.resumeUrl ? `
+            <div class="mb-3">
+              <h6>Резюме</h6>
+              <a href="${app.resumeUrl}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                Посмотреть резюме <i class="bi bi-box-arrow-up-right"></i>
+              </a>
+            </div>
+          ` : ''}
+          
+          <hr>
+          
+          <div class="mt-3">
+            <h6>Информация о статусе</h6>
+            <p>${getStatusDescription(app.status)}</p>
+          </div>
+        </div>
+      `;
+      
+      applicationDetailsBody.innerHTML = html;
+    }
+    
+    // Отображение ошибки в интерфейсе
+    function displayError(error) {
+      console.error('Ошибка:', error);
+      
+      let message = 'Произошла непредвиденная ошибка.';
+      let suggestion = 'Пожалуйста, попробуйте позже или обратитесь в службу поддержки, если проблема не исчезнет.';
+      
+      if (error.error) {
+        message = error.error.message || message;
+        suggestion = error.error.suggestion || suggestion;
+      }
+      
+      errorTitle.textContent = `Ошибка (${error.error?.status || 'Неизвестно'})`;
+      errorMessage.textContent = message;
+      errorSuggestion.textContent = suggestion;
+      errorContainer.style.display = 'block';
+      
+      // Скрыть через 10 секунд
+      setTimeout(() => {
+        errorContainer.style.display = 'none';
+      }, 10000);
+    }
+    
+    // Форматирование статуса заявки
+    function formatStatus(status) {
+      switch (status) {
+        case 'pending':
+          return 'Ожидает';
+        case 'reviewed':
+          return 'Рассмотрена';
+        case 'contacted':
+          return 'Связались';
+        case 'accepted':
+          return 'Принята';
+        case 'rejected':
+          return 'Отклонена';
+        default:
+          return status.charAt(0).toUpperCase() + status.slice(1);
+      }
+    }
+    
+    // Получение описания статуса
+    function getStatusDescription(status) {
+      switch (status) {
+        case 'pending':
+          return 'Ваша заявка получена и ожидает рассмотрения отделом кадров.';
+        case 'reviewed':
+          return 'Ваша заявка была рассмотрена отделом кадров. С вами могут связаться в ближайшее время.';
+        case 'contacted':
+          return 'Отдел кадров попытался связаться с вами по поводу вашей заявки. Пожалуйста, проверьте вашу электронную почту и телефон.';
+        case 'accepted':
+          return 'Поздравляем! Ваша заявка была принята. Вы должны получить официальное предложение в ближайшее время.';
+        case 'rejected':
+          return 'К сожалению, ваша заявка не была выбрана на эту позицию. Рекомендуем вам подать заявки на другие вакансии.';
+        default:
+          return 'Информация о статусе недоступна.';
+      }
+    }
+  </script>
+</body>
+</html> 
